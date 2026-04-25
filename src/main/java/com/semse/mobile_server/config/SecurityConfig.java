@@ -22,7 +22,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/inspection/**",
+                                "/api/inspections/**",
                                 "/api/notices/**",
                                 "/api/statistics/**",
                                 "/api/health",
