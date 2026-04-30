@@ -6,7 +6,7 @@ import com.semse.mobile_server.entity.*;
 import com.semse.mobile_server.repository.InspectionLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
+import java.util.List;
 import java.time.LocalDateTime;
 
 @Service
@@ -74,5 +74,12 @@ public class InspectionService {
 
         // 저장
         inspectionLogRepository.save(log);
+    }
+    public List<InspectionLog> getRecentLogs() {
+        return inspectionLogRepository.findTop20ByOrderByTimestampDesc();
+    }
+    public InspectionLog getLatestByDevice(String deviceId) {
+        return inspectionLogRepository.findTopByDeviceIdOrderByTimestampDesc(deviceId)
+                .orElse(null);
     }
 }

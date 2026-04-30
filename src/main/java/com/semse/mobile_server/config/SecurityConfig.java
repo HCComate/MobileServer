@@ -23,12 +23,13 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/inspections/**",
+                                "/api/devices/**",
                                 "/api/notices/**",
                                 "/api/statistics/**",
                                 "/api/health",
                                 "/h2-console/**"
                         ).permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers("/api/**", "/h2-console/**").permitAll()
                 )
                 .headers(headers ->
                         headers.frameOptions(frame -> frame.sameOrigin()));

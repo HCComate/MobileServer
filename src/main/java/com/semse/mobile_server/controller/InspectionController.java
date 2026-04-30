@@ -5,6 +5,8 @@ import com.google.gson.JsonParser;
 import com.semse.mobile_server.service.InspectionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import com.semse.mobile_server.entity.InspectionLog;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -20,5 +22,13 @@ public class InspectionController {
         inspectionService.saveInspectionData(json);
 
         return "Inspection data saved successfully";
+    }
+    @GetMapping("/recent")
+    public List<InspectionLog> getRecentLogs() {
+        return inspectionService.getRecentLogs();
+    }
+    @GetMapping("/latest")
+    public InspectionLog getLatestByDevice(@RequestParam String deviceId) {
+        return inspectionService.getLatestByDevice(deviceId);
     }
 }
