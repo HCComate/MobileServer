@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
@@ -33,17 +34,41 @@ public class InspectionService {
 
         // sensor data
         JsonObject sensor = body.getAsJsonObject("sensor_data");
+
         log.setTemperature(sensor.get("temperature").getAsDouble());
         log.setVibrationX(sensor.get("vibration_x").getAsDouble());
         log.setVibrationY(sensor.get("vibration_y").getAsDouble());
         log.setIllumination(sensor.get("illumination").getAsDouble());
-        log.setHumidity(sensor.get("humidity").getAsDouble());
 
-        log.setTimestamp(LocalDateTime.parse(body.get("timestamp").getAsString()));
+        if (sensor.has("humidity") && !sensor.get("humidity").isJsonNull()) {
+            log.setHumidity(sensor.get("humidity").getAsDouble());
+        }
+
+// timestamp
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        log.setTimestamp(LocalDateTime.parse(body.get("timestamp").getAsString(), formatter));
         log.setReceivedAt(LocalDateTime.now());
+
+
+// vision_result
+        JsonObject vision = body.getAsJsonObject("vision_result");
+
+        VisionResult vr = new VisionResult();
+        vr.setResult(vision.get("result").getAsString());
+        vr.setDefectType(vision.get("defect_type").getAsString());
+        vr.setConfidence(vision.get("confidence").getAsDouble());
+        vr.setInspectionArea(vision.get("inspection_area").getAsString());
+
+        if (vision.has("image_url") && !vision.get("image_url").isJsonNull()) {
+            vr.setImageUrl(vision.get("image_url").getAsString());
+        }
+
+        vr.setInspectionLog(log);
+        log.setVisionResult(vr);
 
         // status_info
         JsonArray statusArray = body.getAsJsonArray("status_info");
+
         for (int i = 0; i < statusArray.size(); i++) {
             JsonObject s = statusArray.get(i).getAsJsonObject();
 
@@ -58,19 +83,6 @@ public class InspectionService {
             status.setInspectionLog(log);
             log.getStatusInfos().add(status);
         }
-
-        // vision_result
-        JsonObject vision = body.getAsJsonObject("vision_result");
-
-        VisionResult vr = new VisionResult();
-        vr.setResult(vision.get("result").getAsString());
-        vr.setDefectType(vision.get("defect_type").getAsString());
-        vr.setConfidence(vision.get("confidence").getAsDouble());
-        vr.setInspectionArea(vision.get("inspection_area").getAsString());
-        vr.setImageUrl(vision.get("image_url").getAsString());
-
-        vr.setInspectionLog(log);
-        log.setVisionResult(vr);
 
         // 저장
         inspectionLogRepository.save(log);

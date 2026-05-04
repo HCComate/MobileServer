@@ -28,7 +28,7 @@ public class InspectionLog {
     private MachineStatus machineStatus;
 
     // status_info (1:N)
-    @OneToMany(mappedBy = "inspectionLog", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "inspectionLog", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<StatusInfo> statusInfos = new ArrayList<>();
 
     // vision_result (1:1)

@@ -20,16 +20,8 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/api/inspections/**",
-                                "/api/devices/**",
-                                "/api/notices/**",
-                                "/api/statistics/**",
-                                "/api/health",
-                                "/h2-console/**"
-                        ).permitAll()
                         .requestMatchers("/api/**", "/h2-console/**").permitAll()
+                        .anyRequest().permitAll()
                 )
                 .headers(headers ->
                         headers.frameOptions(frame -> frame.sameOrigin()));
