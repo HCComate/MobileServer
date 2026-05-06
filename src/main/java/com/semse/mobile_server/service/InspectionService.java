@@ -23,17 +23,16 @@ public class InspectionService {
 
         InspectionLog log = new InspectionLog();
 
-        // header
-        log.setDeviceId(header.get("device_id").getAsString());
-        log.setBatchId(header.get("batch_id").getAsString());
-        log.setModelName(header.get("model_name").getAsString());
+        // 기본 정보
+        log.setDeviceId(json.get("device_id").getAsString());
+        log.setBatchId(json.get("batch_id").getAsString());
+        log.setModelName(json.get("model_name").getAsString());
 
-        // body
-        log.setSequence(body.get("sequence").getAsInt());
-        log.setMachineStatus(MachineStatus.valueOf(body.get("machine_status").getAsString()));
+        log.setSequence(json.get("sequence").getAsInt());
+        log.setMachineStatus(MachineStatus.valueOf(json.get("machine_status").getAsString()));
 
-        // sensor data
-        JsonObject sensor = body.getAsJsonObject("sensor_data");
+        // sensor_data
+        JsonObject sensor = json.getAsJsonObject("sensor_data");
 
         log.setTemperature(sensor.get("temperature").getAsDouble());
         log.setVibrationX(sensor.get("vibration_x").getAsDouble());
@@ -44,14 +43,13 @@ public class InspectionService {
             log.setHumidity(sensor.get("humidity").getAsDouble());
         }
 
-// timestamp
+        // timestamp
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
-        log.setTimestamp(LocalDateTime.parse(body.get("timestamp").getAsString(), formatter));
+        log.setTimestamp(LocalDateTime.parse(json.get("timestamp").getAsString(), formatter));
         log.setReceivedAt(LocalDateTime.now());
 
-
-// vision_result
-        JsonObject vision = body.getAsJsonObject("vision_result");
+        // vision_result
+        JsonObject vision = json.getAsJsonObject("vision_result");
 
         VisionResult vr = new VisionResult();
         vr.setResult(vision.get("result").getAsString());
@@ -67,7 +65,7 @@ public class InspectionService {
         log.setVisionResult(vr);
 
         // status_info
-        JsonArray statusArray = body.getAsJsonArray("status_info");
+        JsonArray statusArray = json.getAsJsonArray("status_info");
 
         for (int i = 0; i < statusArray.size(); i++) {
             JsonObject s = statusArray.get(i).getAsJsonObject();
@@ -84,7 +82,6 @@ public class InspectionService {
             log.getStatusInfos().add(status);
         }
 
-        // 저장
         inspectionLogRepository.save(log);
     }
     public List<InspectionLog> getRecentLogs() {
