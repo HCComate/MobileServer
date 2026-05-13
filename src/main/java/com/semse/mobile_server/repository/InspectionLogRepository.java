@@ -19,4 +19,6 @@ public interface InspectionLogRepository extends JpaRepository<InspectionLog, Lo
             LocalDateTime end
     );
     List<InspectionLog> findTop20ByOrderByTimestampDesc();
+
+    List<InspectionLog> findByTimestampAfter(LocalDateTime timestamp);
 }
