@@ -8,7 +8,7 @@ import com.semse.mobile_server.dto.DeviceDetailResponse;
 import com.semse.mobile_server.dto.StatusInfoResponse;
 import com.semse.mobile_server.dto.VisionResultResponse;
 import com.semse.mobile_server.dto.DeviceListResponse;
-
+import com.semse.mobile_server.entity.Severity;
 import java.util.*;
 
 @Service
@@ -24,7 +24,6 @@ public class DeviceService {
 
         for (InspectionLog log : allLogs) {
             String deviceId = log.getDeviceId();
-
             if (!latestMap.containsKey(deviceId) ||
                     log.getTimestamp().isAfter(latestMap.get(deviceId).getTimestamp())) {
                 latestMap.put(deviceId, log);
@@ -32,12 +31,30 @@ public class DeviceService {
         }
 
         return latestMap.values().stream()
-                .map(log -> new DeviceListResponse(
-                        log.getDeviceId(),
-                        log.getMachineStatus().name(),
-                        log.getModelName(),
-                        log.getTimestamp()
-                ))
+                .map(log -> {
+                    // visionResult
+                    String visionResult = (log.getVisionResult() != null)
+                            ? log.getVisionResult().getResult()
+                            : null;
+
+                    // severity — statusInfos 중 가장 높은 것
+                    String severity = log.getStatusInfos().stream()
+                            .filter(s -> s.getSeverity() != null)
+                            .map(s -> s.getSeverity().ordinal())
+                            .max(Integer::compareTo)
+                            .map(i -> Severity.values()[i].name())
+                            .orElse(null);
+
+                    return new DeviceListResponse(
+                            log.getDeviceId(),
+                            log.getModelName(),
+                            log.getMachineStatus().name(),
+                            log.getTimestamp(),
+                            visionResult,
+                            severity,
+                            log.getSequence()
+                    );
+                })
                 .toList();
     }
     public DeviceDetailResponse getDeviceDetail(String deviceId) {
@@ -78,12 +95,12 @@ public class DeviceService {
                 log.getModelName(),
                 log.getSequence(),
                 log.getMachineStatus().name(),
+                log.getTimestamp(),       // timestamp 앞으로
                 log.getTemperature(),
                 log.getVibrationX(),
                 log.getVibrationY(),
                 log.getIllumination(),
                 log.getHumidity(),
-                log.getTimestamp(),
                 statusInfos,
                 visionResult
         );

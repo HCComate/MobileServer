@@ -9,6 +9,9 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import com.semse.mobile_server.dto.DeviceDetailResponse;
+import com.semse.mobile_server.dto.StatusInfoResponse;
+import com.semse.mobile_server.dto.VisionResultResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -84,11 +87,59 @@ public class InspectionService {
 
         inspectionLogRepository.save(log);
     }
-    public List<InspectionLog> getRecentLogs() {
-        return inspectionLogRepository.findTop20ByOrderByTimestampDesc();
+
+    public List<DeviceDetailResponse> getRecentLogs() {
+        return inspectionLogRepository.findTop20ByOrderByTimestampDesc()
+                .stream()
+                .map(this::toDetailResponse)
+                .toList();
     }
-    public InspectionLog getLatestByDevice(String deviceId) {
-        return inspectionLogRepository.findTopByDeviceIdOrderByTimestampDesc(deviceId)
+
+    public DeviceDetailResponse getLatestByDevice(String deviceId) {
+        return inspectionLogRepository
+                .findTopByDeviceIdOrderByTimestampDesc(deviceId)
+                .map(this::toDetailResponse)
                 .orElse(null);
+    }
+
+    // 공통 변환 메서드 추가
+    private DeviceDetailResponse toDetailResponse(InspectionLog log) {
+        List<StatusInfoResponse> statusInfos = log.getStatusInfos().stream()
+                .map(s -> new StatusInfoResponse(
+                        s.getCode(),
+                        s.getMsg(),
+                        s.getSeverity().name(),
+                        s.getDirection(),
+                        s.getPartLocation(),
+                        s.getIsCaptureRequired()
+                ))
+                .toList();
+
+        VisionResultResponse visionResult = null;
+        if (log.getVisionResult() != null) {
+            visionResult = new VisionResultResponse(
+                    log.getVisionResult().getResult(),
+                    log.getVisionResult().getDefectType(),
+                    log.getVisionResult().getConfidence(),
+                    log.getVisionResult().getInspectionArea(),
+                    log.getVisionResult().getImageUrl()
+            );
+        }
+
+        return new DeviceDetailResponse(
+                log.getDeviceId(),
+                log.getBatchId(),
+                log.getModelName(),
+                log.getSequence(),
+                log.getMachineStatus().name(),
+                log.getTimestamp(),
+                log.getTemperature(),
+                log.getVibrationX(),
+                log.getVibrationY(),
+                log.getIllumination(),
+                log.getHumidity(),
+                statusInfos,
+                visionResult
+        );
     }
 }

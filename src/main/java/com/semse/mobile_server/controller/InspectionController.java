@@ -2,10 +2,13 @@ package com.semse.mobile_server.controller;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.semse.mobile_server.dto.ApiResponse;
+import com.semse.mobile_server.dto.DeviceDetailResponse;
 import com.semse.mobile_server.service.InspectionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.semse.mobile_server.entity.InspectionLog;
+
 import java.util.List;
 
 @RestController
@@ -18,17 +21,18 @@ public class InspectionController {
     @PostMapping
     public String saveInspection(@RequestBody String body) {
         JsonObject json = JsonParser.parseString(body).getAsJsonObject();
-
         inspectionService.saveInspectionData(json);
-
         return "Inspection data saved successfully";
     }
+
     @GetMapping("/recent")
-    public List<InspectionLog> getRecentLogs() {
-        return inspectionService.getRecentLogs();
+    public ResponseEntity<ApiResponse<List<DeviceDetailResponse>>> getRecentLogs() {
+        return ResponseEntity.ok(ApiResponse.ok(inspectionService.getRecentLogs()));
     }
+
     @GetMapping("/latest")
-    public InspectionLog getLatestByDevice(@RequestParam String deviceId) {
-        return inspectionService.getLatestByDevice(deviceId);
+    public ResponseEntity<ApiResponse<DeviceDetailResponse>> getLatestByDevice(
+            @RequestParam String deviceId) {
+        return ResponseEntity.ok(ApiResponse.ok(inspectionService.getLatestByDevice(deviceId)));
     }
 }

@@ -9,13 +9,14 @@ public record DeviceDetailResponse(
         String modelName,
         Integer sequence,
         String machineStatus,
+        LocalDateTime timestamp,
         Double temperature,
         Double vibrationX,
         Double vibrationY,
         Double illumination,
         Double humidity,
-        LocalDateTime timestamp,
         List<StatusInfoResponse> statusInfos,
         VisionResultResponse visionResult
+
 ) {
 }
