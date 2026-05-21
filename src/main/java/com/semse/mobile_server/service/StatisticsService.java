@@ -1,60 +1,43 @@
 package com.semse.mobile_server.service;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.semse.mobile_server.dto.StatisticsResponse;
-import com.semse.mobile_server.repository.InspectionLogRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.stream.Collectors;
+import org.springframework.web.client.RestTemplate;
 
 @Service
 @RequiredArgsConstructor
 public class StatisticsService {
 
-    private final InspectionLogRepository inspectionLogRepository;
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    @Value("${admin.pc.base-url}")
+    private String adminBaseUrl;
 
     public StatisticsResponse getStatistics() {
-        LocalDateTime startOfDay = LocalDateTime.now().toLocalDate().atStartOfDay();
-        LocalDateTime last24h = LocalDateTime.now().minusHours(24);
+        try {
+            String url = adminBaseUrl + "/api/dashboard/summary";
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            JsonObject json = JsonParser.parseString(response.getBody()).getAsJsonObject();
 
-        var todayLogs = inspectionLogRepository.findByTimestampAfter(startOfDay);
-        var last24hLogs = inspectionLogRepository.findByTimestampAfter(last24h);
+            return StatisticsResponse.builder()
+                    .totalDevices(json.get("total_devices").getAsInt())
+                    .runningDevices(json.get("running_devices").getAsInt())
+                    .errorDevices(json.get("error_devices").getAsInt())
+                    .totalInspections(json.get("total_inspections").getAsInt())
+                    .okCount(json.get("ok_count").getAsInt())
+                    .ngCount(json.get("ng_count").getAsInt())
+                    .ngRate(json.get("ng_rate").getAsDouble())
+                    .errorCount(json.get("error_count").getAsInt())
+                    .build();
 
-        long okCount = todayLogs.stream()
-                .filter(log -> log.getVisionResult() != null
-                        && "OK".equals(log.getVisionResult().getResult()))
-                .count();
-
-        long ngCount = todayLogs.stream()
-                .filter(log -> log.getVisionResult() != null
-                        && "NG".equals(log.getVisionResult().getResult()))
-                .count();
-
-        Map<String, Long> ngByDevice = todayLogs.stream()
-                .filter(log -> log.getVisionResult() != null
-                        && "NG".equals(log.getVisionResult().getResult()))
-                .collect(Collectors.groupingBy(
-                        log -> log.getDeviceId(),
-                        Collectors.counting()
-                ));
-
-        Map<String, Long> bySeverity = todayLogs.stream()
-                .flatMap(log -> log.getStatusInfos().stream())
-                .filter(s -> s.getSeverity() != null)
-                .collect(Collectors.groupingBy(
-                        s -> s.getSeverity().name(),
-                        Collectors.counting()
-                ));
-
-        return StatisticsResponse.builder()
-                .totalToday(todayLogs.size())
-                .okCountToday(okCount)
-                .ngCountToday(ngCount)
-                .last24hCount(last24hLogs.size())
-                .ngCountByDevice(ngByDevice)
-                .countBySeverity(bySeverity)
-                .build();
+        } catch (Exception e) {
+            System.out.println("StatisticsService 호출 실패: " + e.getMessage());
+            return StatisticsResponse.builder().build();
+        }
     }
 }

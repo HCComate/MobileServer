@@ -6,6 +6,7 @@ import com.semse.mobile_server.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.semse.mobile_server.dto.RoleUpdateRequest;
 
 import java.util.List;
 
@@ -19,5 +20,13 @@ public class UserController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers() {
         return ResponseEntity.ok(ApiResponse.ok(userService.getAllUsers()));
+    }
+
+    @PatchMapping("/{userId}/role")
+    public ResponseEntity<ApiResponse<String>> updateRole(
+            @PathVariable String userId,
+            @RequestBody RoleUpdateRequest request) {
+        userService.updateRole(userId, request.getRole());
+        return ResponseEntity.ok(ApiResponse.ok("권한 변경 완료"));
     }
 }

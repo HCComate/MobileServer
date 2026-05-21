@@ -45,6 +45,11 @@ dependencies {
 
 // WebSocket
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation 'io.socket:socket.io-client:2.1.0'
+
+	runtimeOnly 'com.mysql:mysql-connector-j'
 }
 
 
