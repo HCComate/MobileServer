@@ -19,19 +19,26 @@ public class DataInitializer implements CommandLineRunner {
         if (userRepository.count() == 0) {
             userRepository.save(User.builder()
                     .userId("admin")
-                    .password(passwordEncoder.encode("1234"))
+                    .password(passwordEncoder.encode("admin1234"))
                     .name("관리자")
-                    .role("ADMIN")
+                    .role("MASTER")
                     .build());
 
             userRepository.save(User.builder()
-                    .userId("user01")
-                    .password(passwordEncoder.encode("1234"))
-                    .name("김가현")
-                    .role("USER")
+                    .userId("tech1")
+                    .password(passwordEncoder.encode("tech1234"))
+                    .name("엔지니어1")
+                    .role("TECHNICIAN")
                     .build());
 
-            System.out.println("=== 테스트 사용자 2명 생성 완료 ===");
+            userRepository.save(User.builder()
+                    .userId("operator1")
+                    .password(passwordEncoder.encode("oper1234"))
+                    .name("작업자1")
+                    .role("OPERATOR")
+                    .build());
+
+            System.out.println("=== 기본 사용자 3명 생성 완료 ===");
         }
     }
 }

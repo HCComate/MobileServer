@@ -48,6 +48,7 @@ dependencies {
 
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	implementation 'io.socket:socket.io-client:2.1.0'
+	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
 
 	runtimeOnly 'com.mysql:mysql-connector-j'
 }

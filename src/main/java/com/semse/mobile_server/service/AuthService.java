@@ -1,36 +1,59 @@
 package com.semse.mobile_server.service;
 
-import com.semse.mobile_server.config.JwtUtil;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.semse.mobile_server.dto.LoginRequest;
 import com.semse.mobile_server.dto.LoginResponse;
-import com.semse.mobile_server.entity.User;
-import com.semse.mobile_server.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository userRepository;
-    private final JwtUtil jwtUtil;
-    private final PasswordEncoder passwordEncoder;
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    @Value("${admin.pc.base-url}")
+    private String adminBaseUrl;
 
     public LoginResponse login(LoginRequest request) {
-        // 1. userId로 사용자 조회
-        User user = userRepository.findByUserId(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        try {
+            String url = adminBaseUrl + "/api/auth/login";
 
-        // 2. 비밀번호 확인
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("비밀번호가 일치하지 않습니다.");
+            // 재민이 서버는 username/password 필드 사용
+            JsonObject body = new JsonObject();
+            body.addProperty("username", request.getUserId());
+            body.addProperty("password", request.getPassword());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<String> entity = new HttpEntity<>(body.toString(), headers);
+
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    url, entity, String.class);
+
+            JsonObject json = JsonParser.parseString(response.getBody()).getAsJsonObject();
+            JsonObject user = json.getAsJsonObject("user");
+
+            String token = json.get("token").getAsString();
+            String userId = user.get("username").getAsString();
+            String name = user.has("nickname") ? user.get("nickname").getAsString() : userId;
+            String role = user.get("role").getAsString().toUpperCase();
+
+            return new LoginResponse(token, userId, name, role);
+
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                throw new RuntimeException("아이디 또는 비밀번호가 틀렸습니다.");
+            }
+            throw new RuntimeException("로그인 실패: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("재민이 서버 연결 실패: " + e.getMessage());
         }
-
-        // 3. JWT 토큰 생성
-        String token = jwtUtil.generateToken(user.getUserId(), user.getRole());
-
-        // 4. 응답 반환
-        return new LoginResponse(token, user.getUserId(), user.getName(), user.getRole());
     }
 }
