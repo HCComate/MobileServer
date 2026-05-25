@@ -47,8 +47,8 @@ public class DeviceService {
 
                     return new DeviceListResponse(
                             log.getDeviceId(),
-                            log.getModelName(),
                             log.getMachineStatus().name(),
+                            log.getModelName(),
                             log.getTimestamp(),
                             visionResult,
                             severity,

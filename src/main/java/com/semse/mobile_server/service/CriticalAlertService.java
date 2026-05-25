@@ -15,6 +15,7 @@ import java.util.UUID;
 public class CriticalAlertService {
 
     private final AlertWebSocketHandler alertWebSocketHandler;
+    private final EscalationService escalationService;
 
     // Flask critical_alert 이벤트 수신 시 호출
     public void handleCriticalAlert(String payload) {
@@ -23,7 +24,7 @@ public class CriticalAlertService {
 
             String deviceId = json.has("device_id") ? json.get("device_id").getAsString() : "UNKNOWN";
             String timestamp = json.has("timestamp") ? json.get("timestamp").getAsString() : "";
-            String batchId = json.has("batch_id") ? json.get("batch_id").getAsString() : "";
+            String targetUserId = json.has("target_user_id") ? json.get("target_user_id").getAsString() : null;
 
             // error_codes 배열에서 첫 번째 코드 사용
             String errorCode = "CRITICAL";
@@ -36,16 +37,27 @@ public class CriticalAlertService {
                 }
             }
 
-            alertWebSocketHandler.sendAlert(AlertEvent.builder()
-                    .alertId(UUID.randomUUID().toString())
+            String alertId = UUID.randomUUID().toString();
+
+            AlertEvent event = AlertEvent.builder()
+                    .alertId(alertId)
                     .deviceId(deviceId)
                     .errorCode(errorCode)
                     .errorMsg(errorMsg)
                     .severity("CRITICAL")
                     .timestamp(timestamp)
-                    .build());
+                    .targetUserId(targetUserId)
+                    .build();
 
-            System.out.println("Critical alert forwarded: " + deviceId);
+            // 알림 전송
+            alertWebSocketHandler.sendAlert(event);
+
+            // 에스컬레이션 타이머 시작 (20초 방치 시 다음 유저로 넘김)
+            if (targetUserId != null) {
+                escalationService.startEscalationTimer(alertId, deviceId, errorCode, errorMsg, timestamp);
+            }
+
+            System.out.println("Critical alert forwarded → deviceId: " + deviceId + ", targetUserId: " + targetUserId);
 
         } catch (Exception e) {
             System.out.println("CriticalAlertService 처리 실패: " + e.getMessage());

@@ -12,4 +12,5 @@ public class AlertEvent {
     private String errorMsg;
     private String severity;
     private String timestamp;
+    private String targetUserId; // 알림 대상 유저 ID
 }
