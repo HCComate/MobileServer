@@ -3,7 +3,8 @@ package com.semse.mobile_server.config;
 import com.google.gson.Gson;
 import com.semse.mobile_server.dto.AlertEvent;
 import com.semse.mobile_server.service.AlertService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -19,10 +20,10 @@ public class AlertWebSocketHandler extends TextWebSocketHandler {
 
     private final Set<WebSocketSession> sessions = ConcurrentHashMap.newKeySet();
     private final Gson gson = new Gson();
-    private AlertService alertService;
+    private final AlertService alertService;
 
-    @Autowired
-    public void setAlertService(AlertService alertService) {
+    // @Lazy를 사용하여 순환 참조 연결 고리를 끊음
+    public AlertWebSocketHandler(@Lazy AlertService alertService) {
         this.alertService = alertService;
     }
 
@@ -42,7 +43,6 @@ public class AlertWebSocketHandler extends TextWebSocketHandler {
         if (alertService != null) {
             alertService.saveAlert(event);
         }
-
         String payload = gson.toJson(event);
         for (WebSocketSession session : sessions) {
             if (session.isOpen()) {
