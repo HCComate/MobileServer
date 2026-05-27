@@ -24,9 +24,8 @@ public class AuthService {
         try {
             String url = adminBaseUrl + "/api/auth/login";
 
-            // 재민이 서버는 username/password 필드 사용
             JsonObject body = new JsonObject();
-            body.addProperty("username", request.getUserId());
+            body.addProperty("username", request.getUsername());
             body.addProperty("password", request.getPassword());
 
             HttpHeaders headers = new HttpHeaders();
@@ -41,11 +40,11 @@ public class AuthService {
             JsonObject user = json.getAsJsonObject("user");
 
             String token = json.get("token").getAsString();
-            String userId = user.get("username").getAsString();
-            String name = user.has("nickname") ? user.get("nickname").getAsString() : userId;
+            Long userId = user.get("id").getAsLong();
+            String username = user.get("username").getAsString();
             String role = user.get("role").getAsString().toUpperCase();
 
-            return new LoginResponse(token, userId, name, role);
+            return new LoginResponse(token, new LoginResponse.UserInfo(userId, username, role));
 
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {

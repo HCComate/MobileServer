@@ -57,6 +57,7 @@ public class DeviceService {
                 })
                 .toList();
     }
+
     public DeviceDetailResponse getDeviceDetail(String deviceId) {
         InspectionLog log = inspectionLogRepository
                 .findTopByDeviceIdOrderByTimestampDesc(deviceId)
@@ -95,7 +96,7 @@ public class DeviceService {
                 log.getModelName(),
                 log.getSequence(),
                 log.getMachineStatus().name(),
-                log.getTimestamp(),       // timestamp 앞으로
+                log.getTimestamp(),
                 log.getTemperature(),
                 log.getVibrationX(),
                 log.getVibrationY(),
@@ -104,5 +105,9 @@ public class DeviceService {
                 statusInfos,
                 visionResult
         );
+    }
+
+    public void resolveDevice(String deviceId) {
+        System.out.println("[DeviceService] 오류 해제 요청 수신 - deviceId: " + deviceId);
     }
 }

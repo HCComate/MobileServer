@@ -8,7 +8,13 @@ import lombok.Getter;
 public class LoginResponse {
 
     private String token;
-    private String userId;
-    private String name;
-    private String role;
+    private UserInfo user;
+
+    @Getter
+    @AllArgsConstructor
+    public static class UserInfo {
+        private Long userId;
+        private String username;
+        private String role;
+    }
 }
