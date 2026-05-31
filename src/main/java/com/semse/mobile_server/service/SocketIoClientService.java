@@ -12,8 +12,13 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import org.springframework.scheduling.annotation.Scheduled;
+import com.semse.mobile_server.config.PresenceFilter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -158,6 +163,35 @@ public class SocketIoClientService {
         if (socket != null) {
             socket.disconnect();
             socket.close();
+        }
+    }
+
+    // 3초마다 활동 중인 모바일 앱 유저(최근 8초 이내)를 AdminPC로 전송
+    @Scheduled(fixedRate = 3000)
+    public void sendMobilePresence() {
+        if (socket == null || !socket.connected()) return;
+
+        long now = System.currentTimeMillis();
+        List<Map<String, Object>> activeUsersList = new ArrayList<>();
+
+        for (Map.Entry<String, Map<String, Object>> entry : PresenceFilter.activeUsers.entrySet()) {
+            String username = entry.getKey();
+            Map<String, Object> userInfo = entry.getValue();
+            long lastSeen = (long) userInfo.get("last_seen");
+            
+            // 8초 이내에 API 호출이 있었던 유저만 온라인으로 간주
+            if (now - lastSeen < 8000) {
+                activeUsersList.add(userInfo);
+            } else {
+                PresenceFilter.activeUsers.remove(username);
+            }
+        }
+
+        try {
+            String payload = new com.google.gson.Gson().toJson(activeUsersList);
+            socket.emit("mobile_presence", new org.json.JSONArray(payload));
+        } catch (Exception e) {
+            System.out.println("mobile_presence 전송 실패: " + e.getMessage());
         }
     }
 }
