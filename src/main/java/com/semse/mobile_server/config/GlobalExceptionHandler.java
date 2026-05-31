@@ -10,11 +10,18 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 리소스 못 찾을 때 (예: 없는 ID 조회)
+    // AdminPC 에러를 원래 상태코드 그대로 앱에 전달
+    @ExceptionHandler(AdminPcException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAdminPcException(AdminPcException e) {
+        return ResponseEntity
+                .status(e.getStatusCode())
+                .body(ApiResponse.error(e.getMessage()));
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<Void>> handleRuntimeException(RuntimeException e) {
         return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(e.getMessage()));
     }
 

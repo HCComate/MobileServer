@@ -1,7 +1,5 @@
 package com.semse.mobile_server.service;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.semse.mobile_server.dto.DeviceDetailResponse;
 import com.semse.mobile_server.dto.DeviceListResponse;
 import com.semse.mobile_server.dto.StatusInfoResponse;
@@ -11,7 +9,6 @@ import com.semse.mobile_server.entity.MachineStatus;
 import com.semse.mobile_server.entity.Severity;
 import com.semse.mobile_server.repository.InspectionLogRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -33,20 +30,9 @@ import java.util.*;
 public class DeviceService {
 
     private final InspectionLogRepository inspectionLogRepository;
+    private final AdminPcAuthClient adminPcAuthClient;
 
     private final RestTemplate restTemplate = new RestTemplate();
-
-    @Value("${admin.pc.base-url}")
-    private String adminBaseUrl;
-
-    @Value("${admin.pc.username}")
-    private String adminUsername;
-
-    @Value("${admin.pc.password}")
-    private String adminPassword;
-
-    /** AdminPC-Server 인증 토큰 (지연 초기화) */
-    private String token;
 
     // ──────────────────────────────────────────────────────────────────────────
     // 조회
@@ -130,21 +116,21 @@ public class DeviceService {
     public void resolveDevice(String deviceId) {
         System.out.println("[DeviceService] 오류 해제 요청 수신 - deviceId: " + deviceId);
         try {
-            if (token == null) {
-                loginToAdminPc();
-            }
             callResolveApi(deviceId);
             System.out.println("[DeviceService] AdminPC-Server 오류 해제 성공 - deviceId: " + deviceId);
-        } catch (Exception e) {
-            // 토큰 만료 가능성 → 재로그인 후 1회 재시도
-            System.out.println("[DeviceService] 오류 해제 실패, 재로그인 후 재시도: " + e.getMessage());
-            token = null;
-            try {
-                loginToAdminPc();
-                callResolveApi(deviceId);
-                System.out.println("[DeviceService] 재시도 후 오류 해제 성공 - deviceId: " + deviceId);
-            } catch (Exception retryEx) {
-                throw new RuntimeException("AdminPC-Server 오류 해제 실패: " + retryEx.getMessage(), retryEx);
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            // 401 토큰 만료 시에만 무효화 후 1회 재시도
+            if (e.getStatusCode() == org.springframework.http.HttpStatus.UNAUTHORIZED) {
+                System.out.println("[DeviceService] 토큰 만료, 재시도: " + deviceId);
+                adminPcAuthClient.invalidateToken();
+                try {
+                    callResolveApi(deviceId);
+                    System.out.println("[DeviceService] 재시도 후 오류 해제 성공 - deviceId: " + deviceId);
+                } catch (Exception retryEx) {
+                    throw new RuntimeException("AdminPC-Server 오류 해제 실패: " + retryEx.getMessage(), retryEx);
+                }
+            } else {
+                throw new RuntimeException("AdminPC-Server 오류 해제 실패: " + e.getMessage(), e);
             }
         }
     }
@@ -155,29 +141,10 @@ public class DeviceService {
 
 
 
-    /**
-     * AdminPC-Server 에 로그인하여 토큰을 갱신합니다.
-     */
-    private void loginToAdminPc() {
-        String url = adminBaseUrl + "/api/auth/login";
-        JsonObject body = new JsonObject();
-        body.addProperty("username", adminUsername);
-        body.addProperty("password", adminPassword);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(body.toString(), headers);
-
-        ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-        JsonObject json = JsonParser.parseString(response.getBody()).getAsJsonObject();
-        this.token = json.get("token").getAsString();
-        System.out.println("[DeviceService] AdminPC-Server 로그인 성공");
-    }
-
     private void callResolveApi(String deviceId) {
-        String url = adminBaseUrl + "/api/devices/" + deviceId + "/resolve";
+        String url = adminPcAuthClient.getBaseUrl() + "/api/devices/" + deviceId + "/resolve";
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(token);
+        headers.setBearerAuth(adminPcAuthClient.getValidToken());
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Void> entity = new HttpEntity<>(headers);
         restTemplate.exchange(url, HttpMethod.POST, entity, String.class);

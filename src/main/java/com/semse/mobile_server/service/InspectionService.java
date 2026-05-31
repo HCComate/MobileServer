@@ -158,7 +158,7 @@ public class InspectionService {
     }
 
     public List<DeviceDetailResponse> getRecentLogs() {
-        return inspectionLogRepository.findTop20ByOrderByTimestampDesc()
+        return inspectionLogRepository.findLatestPerDevice()
                 .stream()
                 .map(this::toDetailResponse)
                 .toList();

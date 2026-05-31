@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.semse.mobile_server.dto.LoginRequest;
 import com.semse.mobile_server.dto.LoginResponse;
+import com.semse.mobile_server.config.AdminPcException;
+import com.semse.mobile_server.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -15,6 +17,7 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class AuthService {
 
+    private final UserRepository userRepository;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${admin.pc.base-url}")
@@ -40,19 +43,26 @@ public class AuthService {
             JsonObject user = json.getAsJsonObject("user");
 
             String token = json.get("token").getAsString();
-            Long userId = user.get("id").getAsLong();
             String username = user.get("username").getAsString();
             String role = user.get("role").getAsString().toUpperCase();
 
-            return new LoginResponse(token, new LoginResponse.UserInfo(userId, username, role));
+            // AdminPC username으로 MobileServer DB의 userId 조회 (없으면 username 그대로 사용)
+            String mobileUserId = userRepository.findByUserId(username)
+                    .map(u -> u.getUserId())
+                    .orElse(username);
+
+            return new LoginResponse(token, new LoginResponse.UserInfo(mobileUserId, username, role));
 
         } catch (HttpClientErrorException e) {
-            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-                throw new RuntimeException("아이디 또는 비밀번호가 틀렸습니다.");
-            }
-            throw new RuntimeException("로그인 실패: " + e.getMessage());
+            // AdminPC의 에러 응답에서 message 추출 후 동일 상태코드로 재전달
+            String errorMsg = e.getMessage();
+            try {
+                JsonObject errJson = JsonParser.parseString(e.getResponseBodyAsString()).getAsJsonObject();
+                if (errJson.has("error")) errorMsg = errJson.get("error").getAsString();
+            } catch (Exception ignored) {}
+            throw new AdminPcException(e.getStatusCode().value(), errorMsg);
         } catch (Exception e) {
-            throw new RuntimeException("재민이 서버 연결 실패: " + e.getMessage());
+            throw new AdminPcException(503, "AdminPC 서버 연결 실패: " + e.getMessage());
         }
     }
 }

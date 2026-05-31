@@ -22,88 +22,48 @@ public class PollingService {
     private final InspectionService inspectionService;
     private final AlertWebSocketHandler alertWebSocketHandler;
 
+    private final AdminPcAuthClient adminPcAuthClient;
     private final RestTemplate restTemplate = new RestTemplate();
     private final RawLogWebSocketHandler rawLogWebSocketHandler;
 
-    @Value("${admin.pc.base-url}")
-    private String adminBaseUrl;
-
-    @Value("${admin.pc.username}")
-    private String username;
-
-    @Value("${admin.pc.password}")
-    private String password;
-
-    private String token;
     private long lastId = 0;
 
     @Scheduled(fixedRate = 5000)
     public void pollAdminPc() {
         try {
-            if (token == null) {
-                login();
-            }
-
-            String url = adminBaseUrl + "/api/logs/after?last_id=" + lastId;
+            String url = adminPcAuthClient.getBaseUrl() + "/api/logs/after?last_id=" + lastId;
 
             HttpHeaders headers = new HttpHeaders();
-            headers.setBearerAuth(token);
+            headers.setBearerAuth(adminPcAuthClient.getValidToken());
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
             ResponseEntity<String> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    entity,
-                    String.class
-            );
+                    url, HttpMethod.GET, entity, String.class);
 
             JsonArray logs = JsonParser.parseString(response.getBody()).getAsJsonArray();
 
             for (JsonElement element : logs) {
                 JsonObject logJson = element.getAsJsonObject();
-
                 inspectionService.saveInspectionData(logJson);
                 rawLogWebSocketHandler.sendRawLog(buildRawLogPayload(logJson));
 
                 long currentId = logJson.get("id").getAsLong();
-                if (currentId > lastId) {
-                    lastId = currentId;
-                }
+                if (currentId > lastId) lastId = currentId;
             }
 
             if (logs.size() > 0) {
                 System.out.println("Polling success. saved logs: " + logs.size() + ", lastId: " + lastId);
             }
 
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            System.out.println("Polling failed: " + e.getMessage());
+            if (e.getStatusCode() == org.springframework.http.HttpStatus.UNAUTHORIZED) {
+                adminPcAuthClient.invalidateToken();
+            }
         } catch (Exception e) {
             System.out.println("Polling failed: " + e.getMessage());
-            token = null;
         }
-    }
-
-    private void login() {
-        String url = adminBaseUrl + "/api/auth/login";
-
-        JsonObject loginBody = new JsonObject();
-        loginBody.addProperty("username", username);
-        loginBody.addProperty("password", password);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<String> entity = new HttpEntity<>(loginBody.toString(), headers);
-
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                url,
-                entity,
-                String.class
-        );
-
-        JsonObject json = JsonParser.parseString(response.getBody()).getAsJsonObject();
-        this.token = json.get("token").getAsString();
-
-        System.out.println("Admin PC login success");
     }
     /**
      * AdminPC-Server 의 flat JSON 로그를 MobileApp 에 전달할 header/body 구조로 변환합니다.

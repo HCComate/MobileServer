@@ -13,7 +13,7 @@ public class LoginResponse {
     @Getter
     @AllArgsConstructor
     public static class UserInfo {
-        private Long userId;
+        private String userId;   // MobileServer DB의 userId (앱 currentUserId와 매칭용)
         private String username;
         private String role;
     }

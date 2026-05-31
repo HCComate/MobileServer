@@ -3,6 +3,7 @@ package com.semse.mobile_server.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -33,9 +34,10 @@ public class User {
 
     private String workStatus;  // IDLE / BUSY
 
+    @Builder.Default
     @ElementCollection
     @CollectionTable(name = "user_assigned_devices",
             joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "device_id")
-    private List<String> assignedDevices;
+    private List<String> assignedDevices = new ArrayList<>();
 }
