@@ -5,7 +5,10 @@ import com.google.gson.JsonParser;
 import com.semse.mobile_server.dto.StatisticsResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -34,7 +37,11 @@ public class StatisticsService {
     public StatisticsResponse getStatistics() {
         try {
             String url = adminBaseUrl + "/api/dashboard/summary";
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Internal-Secret", "capstone2026");
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
             JsonObject json = JsonParser.parseString(response.getBody()).getAsJsonObject();
 
             // AdminPC-Server 의 /api/dashboard/summary 에는 locked_devices 가 없으므로
@@ -42,7 +49,7 @@ public class StatisticsService {
             int lockedCount = 0;
             try {
                 String lockedUrl = adminBaseUrl + "/api/devices/locked";
-                ResponseEntity<String> lockedResponse = restTemplate.getForEntity(lockedUrl, String.class);
+                ResponseEntity<String> lockedResponse = restTemplate.exchange(lockedUrl, HttpMethod.GET, entity, String.class);
                 com.google.gson.JsonArray lockedArray = JsonParser.parseString(lockedResponse.getBody()).getAsJsonArray();
                 lockedCount = lockedArray.size();
             } catch (Exception le) {

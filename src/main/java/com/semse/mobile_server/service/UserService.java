@@ -1,48 +1,87 @@
 package com.semse.mobile_server.service;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.semse.mobile_server.dto.UserResponse;
 import com.semse.mobile_server.entity.User;
 import com.semse.mobile_server.repository.UserRepository;
-import org.springframework.http.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
     private final AdminPcAuthClient adminPcAuthClient;
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public UserService(UserRepository userRepository, AdminPcAuthClient adminPcAuthClient) {
-        this.userRepository = userRepository;
-        this.adminPcAuthClient = adminPcAuthClient;
-    }
+    @Value("${admin.pc.base-url}")
+    private String adminBaseUrl;
 
+    /**
+     * 전체 사용자 목록을 반환합니다.
+     * 
+     * <p>AdminPC-Server에서 사용자 정보를 먼저 조회하고,
+     * 실패 시 로컬 DB에서 폴백으로 반환합니다.
+     * 온라인 상태는 AdminPC-Server의 workers/status에서 조회합니다.</p>
+     */
     public List<UserResponse> getAllUsers() {
-        List<User> users = userRepository.findAll();
-        Set<String> onlineUsernames = fetchOnlineUsernames();
+        try {
+            // AdminPC-Server에서 사용자 정보 조회
+            String url = adminBaseUrl + "/api/users";
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Internal-Secret", "capstone2026");
+            HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        return users.stream()
-                .map(user -> UserResponse.builder()
-                        .userId(user.getUserId())
-                        .name(user.getName())
-                        .role(user.getRole())
-                        .shiftStatus(onlineUsernames.contains(user.getUserId()) ? "ON_DUTY" : "OFF_DUTY")
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+            JsonArray jsonArray = JsonParser.parseString(response.getBody()).getAsJsonArray();
+            
+            // 온라인 상태 정보 조회
+            Set<String> onlineUsernames = fetchOnlineUsernames();
+            
+            List<UserResponse> users = new ArrayList<>();
+            for (JsonElement element : jsonArray) {
+                JsonObject obj = element.getAsJsonObject();
+                String username = obj.get("username").getAsString();
+                boolean isOnline = onlineUsernames.contains(username);
+                
+                users.add(UserResponse.builder()
+                        .userId(username)
+                        .name(obj.get("nickname").getAsString())
+                        .role(obj.get("role").getAsString().toUpperCase())
+                        .shiftStatus(isOnline ? "ON_DUTY" : "OFF_DUTY")
                         .workStatus("IDLE")
-                        .assignedDevices(user.getAssignedDevices() != null ? user.getAssignedDevices() : List.of())
-                        .build())
-                .collect(Collectors.toList());
+                        .assignedDevices(new ArrayList<>())
+                        .build());
+            }
+            return users;
+        } catch (Exception e) {
+            System.out.println("[UserService] AdminPC 유저 목록 조회 실패: " + e.getMessage());
+            // Fallback: 로컬 DB 반환
+            return userRepository.findAll().stream()
+                    .map(UserResponse::from)
+                    .collect(Collectors.toList());
+        }
     }
 
+    /**
+     * 사용자 권한을 업데이트합니다.
+     */
     public void updateRole(String userId, String role) {
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다: " + userId));
@@ -50,6 +89,9 @@ public class UserService {
         userRepository.save(user);
     }
 
+    /**
+     * AdminPC-Server에서 온라인 작업자 목록을 조회합니다.
+     */
     private Set<String> fetchOnlineUsernames() {
         try {
             return callWorkersStatusApi();
@@ -60,7 +102,7 @@ public class UserService {
                 try {
                     return callWorkersStatusApi();
                 } catch (Exception retryEx) {
-                    System.out.println("[UserService] AdminPC 온라인 상태 조회 실패: " + retryEx.getMessage());
+                    System.out.println("[UserService] AdminPC 온라인 상태 조회 실패 (재시도): " + retryEx.getMessage());
                     return Set.of();
                 }
             }
@@ -72,8 +114,11 @@ public class UserService {
         }
     }
 
+    /**
+     * AdminPC-Server의 workers/status API를 호출합니다.
+     */
     private Set<String> callWorkersStatusApi() {
-        String url = adminPcAuthClient.getBaseUrl() + "/api/workers/status";
+        String url = adminBaseUrl + "/api/workers/status";
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(adminPcAuthClient.getValidToken());
         HttpEntity<Void> entity = new HttpEntity<>(headers);
