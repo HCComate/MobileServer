@@ -11,6 +11,7 @@ import com.semse.mobile_server.repository.InspectionLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -31,8 +32,7 @@ public class DeviceService {
 
     private final InspectionLogRepository inspectionLogRepository;
     private final AdminPcAuthClient adminPcAuthClient;
-
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate; // RestTemplateConfig 빈 주입 (타임아웃 포함)
 
     // ──────────────────────────────────────────────────────────────────────────
     // 조회
@@ -44,25 +44,21 @@ public class DeviceService {
      * <p>장비별 가장 최근 InspectionLog 를 기준으로 요약 정보를 구성하며,
      * powerStatus 는 machineStatus 로부터 추론합니다.</p>
      */
+    // AdminPC-Server와 동일한 기본 IDLE 판정 시간 (초)
+    private static final long IDLE_THRESHOLD_SECONDS = 10;
+
+    @Transactional(readOnly = true)
     public List<DeviceListResponse> getAllDevices() {
-        List<InspectionLog> allLogs = inspectionLogRepository.findAll();
+        List<InspectionLog> latestLogs = inspectionLogRepository.findLatestPerDevice();
 
-        Map<String, InspectionLog> latestMap = new HashMap<>();
-        for (InspectionLog log : allLogs) {
-            String deviceId = log.getDeviceId();
-            if (!latestMap.containsKey(deviceId) ||
-                    log.getTimestamp().isAfter(latestMap.get(deviceId).getTimestamp())) {
-                latestMap.put(deviceId, log);
-            }
-        }
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
 
-        return latestMap.values().stream()
+        return latestLogs.stream()
                 .map(log -> {
                     String visionResult = (log.getVisionResult() != null)
                             ? log.getVisionResult().getResult()
                             : null;
 
-                    // statusInfos 중 가장 높은 severity
                     String severity = log.getStatusInfos().stream()
                             .filter(s -> s.getSeverity() != null)
                             .map(s -> s.getSeverity().ordinal())
@@ -71,6 +67,12 @@ public class DeviceService {
                             .orElse(null);
 
                     String machineStatus = log.getMachineStatus().name();
+
+                    if (log.getTimestamp() != null
+                            && ("RUN".equals(machineStatus) || "STANDBY".equals(machineStatus))
+                            && java.time.Duration.between(log.getTimestamp(), now).getSeconds() > IDLE_THRESHOLD_SECONDS) {
+                        machineStatus = "IDLE";
+                    }
 
                     return new DeviceListResponse(
                             log.getDeviceId(),
@@ -82,12 +84,14 @@ public class DeviceService {
                             log.getSequence()
                     );
                 })
+                .sorted(java.util.Comparator.comparing(DeviceListResponse::deviceId))
                 .toList();
     }
 
     /**
      * 특정 장비의 최신 상세 정보를 반환합니다.
      */
+    @Transactional(readOnly = true)
     public DeviceDetailResponse getDeviceDetail(String deviceId) {
         InspectionLog log = inspectionLogRepository
                 .findTopByDeviceIdOrderByTimestampDesc(deviceId)
@@ -119,7 +123,6 @@ public class DeviceService {
             callResolveApi(deviceId);
             System.out.println("[DeviceService] AdminPC-Server 오류 해제 성공 - deviceId: " + deviceId);
         } catch (org.springframework.web.client.HttpClientErrorException e) {
-            // 401 토큰 만료 시에만 무효화 후 1회 재시도
             if (e.getStatusCode() == org.springframework.http.HttpStatus.UNAUTHORIZED) {
                 System.out.println("[DeviceService] 토큰 만료, 재시도: " + deviceId);
                 adminPcAuthClient.invalidateToken();
@@ -129,9 +132,18 @@ public class DeviceService {
                 } catch (Exception retryEx) {
                     throw new RuntimeException("AdminPC-Server 오류 해제 실패: " + retryEx.getMessage(), retryEx);
                 }
+            } else if (e.getStatusCode() == org.springframework.http.HttpStatus.NOT_FOUND) {
+                // 장치가 이미 잠금 해제 상태 → 정상 처리 (이미 해결된 것)
+                System.out.println("[DeviceService] 장치 이미 해제 상태 (정상): " + deviceId);
+            } else if (e.getStatusCode() == org.springframework.http.HttpStatus.FORBIDDEN) {
+                // 권한 없음 → 에러로 전달
+                throw new RuntimeException("오류 해제 권한이 없습니다: " + deviceId);
             } else {
                 throw new RuntimeException("AdminPC-Server 오류 해제 실패: " + e.getMessage(), e);
             }
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            // AdminPC-Server 연결 불가 → 경고만 출력, 앱은 정상 처리
+            System.out.println("[DeviceService] AdminPC-Server 연결 불가, 로컬만 해제: " + e.getMessage());
         }
     }
 

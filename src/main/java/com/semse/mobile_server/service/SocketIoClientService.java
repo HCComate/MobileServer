@@ -61,10 +61,9 @@ public class SocketIoClientService {
             socket.on("mobile_data_feed", args -> {
                 try {
                     String payload = args[0].toString();
-                    System.out.println("mobile_data_feed 수신");
                     rawLogWebSocketHandler.sendRawLog(payload);
                 } catch (Exception e) {
-                    System.out.println("mobile_data_feed 처리 실패: " + e.getMessage());
+                    System.out.println("[SocketIO] mobile_data_feed error: " + e.getMessage());
                 }
             });
 
@@ -99,8 +98,7 @@ public class SocketIoClientService {
                     }
 
                     rawLogWebSocketHandler.sendRawLog(statusUpdate);
-                    System.out.println("device_status_changed 수신 - deviceId: " + deviceId
-                            + ", status: " + rawStatus);
+                    System.out.println("[SocketIO] status_changed: " + deviceId + " → " + rawStatus);
                 } catch (Exception e) {
                     System.out.println("device_status_changed 처리 실패: " + e.getMessage());
                 }

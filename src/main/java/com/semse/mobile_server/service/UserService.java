@@ -28,7 +28,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final AdminPcAuthClient adminPcAuthClient;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate; // RestTemplateConfig 빈 주입 (타임아웃 포함)
 
     @Value("${admin.pc.base-url}")
     private String adminBaseUrl;

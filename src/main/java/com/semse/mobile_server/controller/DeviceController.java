@@ -5,10 +5,13 @@ import com.semse.mobile_server.dto.DeviceDetailResponse;
 import com.semse.mobile_server.dto.DeviceListResponse;
 import com.semse.mobile_server.service.DeviceService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/devices")
@@ -18,7 +21,14 @@ public class DeviceController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<DeviceListResponse>>> getDevices() {
-        return ResponseEntity.ok(ApiResponse.ok(deviceService.getAllDevices()));
+        try {
+            List<DeviceListResponse> devices = deviceService.getAllDevices();
+            log.info("[DeviceController] 장비 목록 반환: {}건", devices.size());
+            return ResponseEntity.ok(ApiResponse.ok(devices));
+        } catch (Exception e) {
+            log.error("[DeviceController] 장비 목록 조회 실패: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     @GetMapping("/{deviceId}/detail")
@@ -32,7 +42,7 @@ public class DeviceController {
             @PathVariable String deviceId) {
         return ResponseEntity.ok(ApiResponse.ok(deviceService.getDeviceDetail(deviceId)));
     }
-    // 오류 해제 API (앱 → MobileServer → AdminPC-Server)
+
     @PostMapping("/{deviceId}/resolve")
     public ResponseEntity<ApiResponse<String>> resolveDevice(
             @PathVariable String deviceId) {

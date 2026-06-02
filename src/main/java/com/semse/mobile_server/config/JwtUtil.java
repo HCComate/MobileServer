@@ -17,10 +17,12 @@ public class JwtUtil {
 
     private final SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
 
-    // 토큰 생성 (userId + role)
-    public String generateToken(String userId, String role) {
+    // 토큰 생성 (userId + username + role)
+    // username 클레임을 포함해 PresenceFilter와 호환되도록 함
+    public String generateToken(String userId, String username, String role) {
         return Jwts.builder()
                 .subject(userId)
+                .claim("username", username)
                 .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + EXPIRATION))

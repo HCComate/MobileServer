@@ -57,3 +57,11 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// Windows 콘솔 한글 깨짐 방지
+tasks.withType(JavaExec).configureEach {
+	jvmArgs '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8'
+}
+bootRun {
+	jvmArgs '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8'
+}

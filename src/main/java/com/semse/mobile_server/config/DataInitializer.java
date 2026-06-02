@@ -17,28 +17,26 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         if (userRepository.count() == 0) {
-            userRepository.save(User.builder()
-                    .userId("admin")
-                    .password(passwordEncoder.encode("admin1234"))
-                    .name("관리자")
-                    .role("MASTER")
-                    .build());
-
-            userRepository.save(User.builder()
-                    .userId("tech1")
-                    .password(passwordEncoder.encode("tech1234"))
-                    .name("엔지니어1")
-                    .role("TECHNICIAN")
-                    .build());
-
-            userRepository.save(User.builder()
-                    .userId("operator1")
-                    .password(passwordEncoder.encode("oper1234"))
-                    .name("작업자1")
-                    .role("OPERATOR")
-                    .build());
-
-            System.out.println("=== 기본 사용자 3명 생성 완료 ===");
+            // AdminPC-Server와 동일한 계정 (폴백 로그인용)
+            save("admin",    "admin1234", "관리자",  "MASTER");
+            save("hansung1", "1234",      "한성",    "TECHNICIAN");
+            save("hansung2", "1234",      "홍길동",  "TECHNICIAN");
+            save("hansung3", "1234",      "김철수",  "OPERATOR");
+            save("hansung4", "1234",      "박한수",  "OPERATOR");
+            save("hansung5", "1234",      "최서울",  "OPERATOR");
+            save("hansung6", "1234",      "이영희",  "TECHNICIAN");
+            save("hansung7", "1234",      "김민준",  "OPERATOR");
+            save("user01",   "1234",      "김가현",  "TECHNICIAN");
+            System.out.println("=== MobileServer 기본 사용자 생성 완료 ===");
         }
+    }
+
+    private void save(String userId, String password, String name, String role) {
+        userRepository.save(User.builder()
+                .userId(userId)
+                .password(passwordEncoder.encode(password))
+                .name(name)
+                .role(role)
+                .build());
     }
 }

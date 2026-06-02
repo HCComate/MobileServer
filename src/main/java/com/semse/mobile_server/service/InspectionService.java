@@ -157,13 +157,16 @@ public class InspectionService {
         }
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<DeviceDetailResponse> getRecentLogs() {
-        return inspectionLogRepository.findLatestPerDevice()
+        // 장비별 1건이 아닌 시간순 최근 50건 반환 (로그 화면용)
+        return inspectionLogRepository.findTop50ByOrderByTimestampDesc()
                 .stream()
                 .map(this::toDetailResponse)
                 .toList();
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public DeviceDetailResponse getLatestByDevice(String deviceId) {
         return inspectionLogRepository
                 .findTopByDeviceIdOrderByTimestampDesc(deviceId)

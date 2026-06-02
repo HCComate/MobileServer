@@ -25,8 +25,17 @@ public class AdminPcAuthClient {
     @Value("${admin.pc.password}")
     private String adminPassword;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private String token;
+
+    public AdminPcAuthClient() {
+        // 타임아웃 설정 (AdminPC-Server 무응답 시 블로킹 방지)
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory =
+                new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(3_000);
+        factory.setReadTimeout(5_000);
+        this.restTemplate = new RestTemplate(factory);
+    }
 
     public String getBaseUrl() {
         return adminBaseUrl;

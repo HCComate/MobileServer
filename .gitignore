@@ -35,3 +35,6 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# 빌드 로그
+build_output.log

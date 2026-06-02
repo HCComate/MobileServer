@@ -32,6 +32,7 @@ import java.util.UUID;
 public class CriticalAlertService {
 
     private final AlertWebSocketHandler alertWebSocketHandler;
+    private final AlertService alertService;
 
     /**
      * AdminPC-Server 에서 수신한 CRITICAL 알림을 처리합니다.
@@ -80,10 +81,14 @@ public class CriticalAlertService {
                     .timestamp(timestamp)
                     .build();
 
+            // WebSocket 전송 (실시간 연결 클라이언트용)
             alertWebSocketHandler.sendAlert(event);
 
-            System.out.println("[CriticalAlertService] CRITICAL 알림 포워딩 완료 → deviceId: " + deviceId
-                    + ", errorCode: " + errorCode);
+            // DB 저장 (REST 폴링 앱용) — 앱의 /api/alerts/pending 폴링에서 감지
+            alertService.saveAlert(event);
+
+            System.out.println("[CriticalAlertService] CRITICAL alert saved and forwarded: "
+                    + deviceId + " / " + errorCode);
 
         } catch (Exception e) {
             System.out.println("[CriticalAlertService] 처리 실패: " + e.getMessage());

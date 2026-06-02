@@ -20,12 +20,12 @@ public interface InspectionLogRepository extends JpaRepository<InspectionLog, Lo
             LocalDateTime end
     );
 
-    List<InspectionLog> findTop20ByOrderByTimestampDesc();
+    List<InspectionLog> findTop50ByOrderByTimestampDesc();
 
     List<InspectionLog> findByTimestampAfter(LocalDateTime timestamp);
 
-    // 장비별 최신 로그 1건씩 조회
-    @Query("SELECT l FROM InspectionLog l WHERE l.timestamp = " +
-           "(SELECT MAX(l2.timestamp) FROM InspectionLog l2 WHERE l2.deviceId = l.deviceId)")
+    // 장비별 최신 로그 1건씩 조회 (id MAX 기준 → H2에서 안정적)
+    @Query("SELECT l FROM InspectionLog l WHERE l.id IN " +
+           "(SELECT MAX(l2.id) FROM InspectionLog l2 GROUP BY l2.deviceId)")
     List<InspectionLog> findLatestPerDevice();
 }
