@@ -87,6 +87,13 @@ public class DeviceService {
 
                     String machineStatus = applyIdleAging(log.getMachineStatus().name(), log.getTimestamp());
 
+                    String defectType = null;
+                    String imageUrl = null;
+                    if (log.getVisionResult() != null) {
+                        defectType = log.getVisionResult().getDefectType();
+                        imageUrl = log.getVisionResult().getImageUrl();
+                    }
+
                     return new DeviceListResponse(
                             log.getDeviceId(),
                             machineStatus,
@@ -94,7 +101,9 @@ public class DeviceService {
                             log.getTimestamp(),
                             visionResult,
                             severity,
-                            log.getSequence()
+                            log.getSequence(),
+                            defectType,
+                            imageUrl
                     );
                 })
                 .sorted(java.util.Comparator.comparing(DeviceListResponse::deviceId))

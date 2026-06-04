@@ -14,6 +14,8 @@ public record DeviceListResponse(
         LocalDateTime timestamp,
         String visionResult,      // OK / NG
         String severity,          // LOW / MEDIUM / HIGH / CRITICAL
-        Integer lastSequence
+        Integer lastSequence,
+        String defectType,
+        String imageUrl
 ) {
 }
