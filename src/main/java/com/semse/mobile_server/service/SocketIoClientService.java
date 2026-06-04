@@ -12,15 +12,15 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.scheduling.annotation.Scheduled;
 import com.semse.mobile_server.config.PresenceFilter;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * AdminPC-Server 의 Socket.IO 이벤트를 리스닝하는 클라이언트 서비스입니다.
@@ -178,7 +178,7 @@ public class SocketIoClientService {
             String username = entry.getKey();
             Map<String, Object> userInfo = entry.getValue();
             long lastSeen = (long) userInfo.get("last_seen");
-            
+
             // 8초 이내에 API 호출이 있었던 유저만 온라인으로 간주
             if (now - lastSeen < 8000) {
                 activeUsersList.add(userInfo);
