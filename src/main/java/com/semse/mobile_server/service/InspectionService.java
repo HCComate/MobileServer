@@ -172,10 +172,10 @@ public class InspectionService {
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<DeviceDetailResponse> getRecentEvents(int limit) {
-        // 이벤트(오류) 로그만 최근순으로. ERROR + LOCKED(=CRITICAL 변환분) 포함.
-        // 정상 로그 폭주(초당 50건)와 무관하게 이벤트가 항상 표시되도록 서버에서 필터.
+        // ERROR/LOCKED + RESOLVED(오류 수정 완료) 로그를 함께 최근순으로 반환.
+        // RESOLVED는 machine_status가 정상값이고 status_info.code = 'RESOLVED'로 식별.
         return inspectionLogRepository
-                .findByMachineStatusInOrderByIdDesc(
+                .findEventLogsOrderByIdDesc(
                         java.util.List.of(MachineStatus.ERROR, MachineStatus.LOCKED),
                         org.springframework.data.domain.PageRequest.of(0, limit))
                 .stream()

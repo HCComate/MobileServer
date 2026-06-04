@@ -5,8 +5,10 @@ import com.semse.mobile_server.entity.MachineStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,6 +41,14 @@ public interface InspectionLogRepository extends JpaRepository<InspectionLog, Lo
     // (CRITICAL은 저장 시 LOCKED로 변환되므로 둘 다 포함)
     List<InspectionLog> findByMachineStatusInOrderByIdDesc(
             java.util.Collection<MachineStatus> statuses, Pageable pageable);
+
+    // ERROR/LOCKED + RESOLVED(오류 수정 완료) 로그를 함께 조회.
+    // RESOLVED는 machine_status가 RUN 등 정상값이고 status_info.code = 'RESOLVED'로 식별.
+    @Query("SELECT DISTINCT l FROM InspectionLog l LEFT JOIN l.statusInfos s " +
+           "WHERE l.machineStatus IN :statuses OR s.code = 'RESOLVED' " +
+           "ORDER BY l.id DESC")
+    List<InspectionLog> findEventLogsOrderByIdDesc(
+            @Param("statuses") Collection<MachineStatus> statuses, Pageable pageable);
 
     List<InspectionLog> findByTimestampAfter(LocalDateTime timestamp);
 
