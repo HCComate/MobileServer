@@ -19,28 +19,29 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 공지사항 조회 서비스.
+ * 주요 일정(Calendar Events) 조회 서비스.
  *
- * <p>공지사항은 AdminPC-Server(웹 UI)에서 작성/관리되므로,
- * MobileServer 자체 DB가 아닌 AdminPC-Server의 /api/notices로 위임합니다.
- * (ScheduleService와 동일한 위임 패턴)</p>
+ * <p>일정은 AdminPC-Server(웹 UI)에서 작성/관리되므로 AdminPC-Server의
+ * /api/events로 위임합니다. month(YYYY-MM) 또는 date(YYYY-MM-DD) 필터를 지원합니다.</p>
  */
 @Service
 @RequiredArgsConstructor
-public class NoticeService {
+public class EventService {
 
     private final RestTemplate restTemplate; // RestTemplateConfig 빈 (타임아웃 포함)
 
     @Value("${admin.pc.base-url}")
     private String adminBaseUrl;
 
-    /**
-     * AdminPC-Server의 공지사항 목록을 그대로 반환합니다.
-     * 앱은 response.data가 배열이길 기대하므로 List를 그대로 반환합니다.
-     */
-    public List<Map<String, Object>> getAllNotices() {
+    public List<Map<String, Object>> getEvents(String month, String date) {
         try {
-            String url = adminBaseUrl + "/api/notices";
+            String url = adminBaseUrl + "/api/events";
+            if (date != null && !date.isEmpty()) {
+                url += "?date=" + date;
+            } else if (month != null && !month.isEmpty()) {
+                url += "?month=" + month;
+            }
+
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Internal-Secret", "capstone2026");
             HttpEntity<String> entity = new HttpEntity<>(headers);
@@ -55,19 +56,15 @@ public class NoticeService {
                 JsonObject obj = el.getAsJsonObject();
                 Map<String, Object> map = new HashMap<>();
                 if (obj.has("id")) map.put("id", obj.get("id").getAsLong());
-                if (obj.has("title") && !obj.get("title").isJsonNull())
-                    map.put("title", obj.get("title").getAsString());
+                if (obj.has("date") && !obj.get("date").isJsonNull())
+                    map.put("date", obj.get("date").getAsString());
                 if (obj.has("content") && !obj.get("content").isJsonNull())
                     map.put("content", obj.get("content").getAsString());
-                if (obj.has("is_important") && !obj.get("is_important").isJsonNull())
-                    map.put("is_important", obj.get("is_important").getAsInt());
-                if (obj.has("created_at") && !obj.get("created_at").isJsonNull())
-                    map.put("created_at", obj.get("created_at").getAsString());
                 result.add(map);
             }
             return result;
         } catch (Exception e) {
-            System.out.println("[NoticeService] AdminPC 공지 조회 실패: " + e.getMessage());
+            System.out.println("[EventService] AdminPC 일정 조회 실패: " + e.getMessage());
             return new ArrayList<>();
         }
     }

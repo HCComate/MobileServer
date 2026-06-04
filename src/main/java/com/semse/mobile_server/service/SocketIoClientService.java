@@ -164,7 +164,13 @@ public class SocketIoClientService {
         }
     }
 
-    // 3초마다 활동 중인 모바일 앱 유저(최근 8초 이내)를 AdminPC로 전송
+    // 온라인 유지 유예 시간(ms). 앱은 3초마다 폴링하므로 평소엔 last_seen이 계속 갱신된다.
+    // USB 분리/Metro 리로드/WiFi 순단 등으로 폴링이 잠깐 멈춰도 작업자가 에스컬레이션
+    // 큐에서 즉시 빠지지 않도록 유예를 둔다(약 6회 폴링 누락까지 허용). 너무 길면 실제
+    // 오프라인 유저가 큐에 남아 알림이 지연되므로 20초로 절충.
+    private static final long PRESENCE_GRACE_MS = 20000;
+
+    // 3초마다 활동 중인 모바일 앱 유저(최근 PRESENCE_GRACE_MS 이내)를 AdminPC로 전송
     @Scheduled(fixedRate = 3000)
     public void sendMobilePresence() {
         if (socket == null || !socket.connected()) return;
@@ -176,9 +182,9 @@ public class SocketIoClientService {
             String username = entry.getKey();
             Map<String, Object> userInfo = entry.getValue();
             long lastSeen = (long) userInfo.get("last_seen");
-            
-            // 8초 이내에 API 호출이 있었던 유저만 온라인으로 간주
-            if (now - lastSeen < 8000) {
+
+            // 유예 시간 이내에 API 호출이 있었던 유저만 온라인으로 간주
+            if (now - lastSeen < PRESENCE_GRACE_MS) {
                 activeUsersList.add(userInfo);
             } else {
                 PresenceFilter.activeUsers.remove(username);

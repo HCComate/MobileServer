@@ -158,9 +158,26 @@ public class InspectionService {
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public List<DeviceDetailResponse> getRecentLogs() {
-        // 장비별 1건이 아닌 시간순 최근 50건 반환 (로그 화면용)
-        return inspectionLogRepository.findTop50ByOrderByTimestampDesc()
+    public List<DeviceDetailResponse> getRecentLogs(int limit) {
+        // 장비별 1건이 아닌 저장순(id) 최근 limit건 반환 (로그/이벤트 화면용)
+        // timestamp가 아닌 id 기준 — 미래 날짜 시드 로그가 "최근"을 점령하는 것 방지.
+        // 50건 고정이던 것을 limit 반영으로 변경: 정상 로그 폭주에 ERROR/이벤트 로그가
+        // 묻혀 이벤트 로그 화면이 비는 문제 해결.
+        return inspectionLogRepository
+                .findByOrderByIdDesc(org.springframework.data.domain.PageRequest.of(0, limit))
+                .stream()
+                .map(this::toDetailResponse)
+                .toList();
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<DeviceDetailResponse> getRecentEvents(int limit) {
+        // 이벤트(오류) 로그만 최근순으로. ERROR + LOCKED(=CRITICAL 변환분) 포함.
+        // 정상 로그 폭주(초당 50건)와 무관하게 이벤트가 항상 표시되도록 서버에서 필터.
+        return inspectionLogRepository
+                .findByMachineStatusInOrderByIdDesc(
+                        java.util.List.of(MachineStatus.ERROR, MachineStatus.LOCKED),
+                        org.springframework.data.domain.PageRequest.of(0, limit))
                 .stream()
                 .map(this::toDetailResponse)
                 .toList();
@@ -169,7 +186,7 @@ public class InspectionService {
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public DeviceDetailResponse getLatestByDevice(String deviceId) {
         return inspectionLogRepository
-                .findTopByDeviceIdOrderByTimestampDesc(deviceId)
+                .findTopByDeviceIdOrderByIdDesc(deviceId)
                 .map(this::toDetailResponse)
                 .orElse(null);
     }

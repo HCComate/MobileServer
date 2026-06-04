@@ -47,17 +47,36 @@ public class DeviceService {
     // AdminPC-Server와 동일한 기본 IDLE 판정 시간 (초)
     private static final long IDLE_THRESHOLD_SECONDS = 10;
 
+    /**
+     * 마지막 로그가 RUN/STANDBY인데 일정 시간 새 로그가 없으면 IDLE로 보정한다.
+     * STANDBY/IDLE/STOP/LOCKED는 AdminPC가 메모리에서 관리하는 실시간 상태라 로그에
+     * 저장되지 않으므로, "검사 데이터가 끊긴" 장비를 가동 중으로 오인하지 않도록
+     * 목록·상세 양쪽에서 동일하게 적용한다.
+     */
+    private String applyIdleAging(String machineStatus, java.time.LocalDateTime timestamp) {
+        if (timestamp != null
+                && ("RUN".equals(machineStatus) || "STANDBY".equals(machineStatus))
+                && java.time.Duration.between(timestamp, java.time.LocalDateTime.now())
+                        .getSeconds() > IDLE_THRESHOLD_SECONDS) {
+            return "IDLE";
+        }
+        return machineStatus;
+    }
+
     @Transactional(readOnly = true)
     public List<DeviceListResponse> getAllDevices() {
         List<InspectionLog> latestLogs = inspectionLogRepository.findLatestPerDevice();
 
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-
         return latestLogs.stream()
                 .map(log -> {
-                    String visionResult = (log.getVisionResult() != null)
+                    // RESOLVED(오류 수정 완료) 등 vision_result가 비어 있는 로그는
+                    // result가 ""로 들어와 모니터링 비전결과가 빈칸이 된다. 빈값/null이면 "OK"로 보정.
+                    String rawVision = (log.getVisionResult() != null)
                             ? log.getVisionResult().getResult()
                             : null;
+                    String visionResult = (rawVision != null && !rawVision.isEmpty())
+                            ? rawVision
+                            : "OK";
 
                     String severity = log.getStatusInfos().stream()
                             .filter(s -> s.getSeverity() != null)
@@ -66,13 +85,7 @@ public class DeviceService {
                             .map(i -> Severity.values()[i].name())
                             .orElse(null);
 
-                    String machineStatus = log.getMachineStatus().name();
-
-                    if (log.getTimestamp() != null
-                            && ("RUN".equals(machineStatus) || "STANDBY".equals(machineStatus))
-                            && java.time.Duration.between(log.getTimestamp(), now).getSeconds() > IDLE_THRESHOLD_SECONDS) {
-                        machineStatus = "IDLE";
-                    }
+                    String machineStatus = applyIdleAging(log.getMachineStatus().name(), log.getTimestamp());
 
                     return new DeviceListResponse(
                             log.getDeviceId(),
@@ -94,7 +107,7 @@ public class DeviceService {
     @Transactional(readOnly = true)
     public DeviceDetailResponse getDeviceDetail(String deviceId) {
         InspectionLog log = inspectionLogRepository
-                .findTopByDeviceIdOrderByTimestampDesc(deviceId)
+                .findTopByDeviceIdOrderByIdDesc(deviceId)
                 .orElse(null);
 
         if (log == null) {
@@ -190,7 +203,7 @@ public class DeviceService {
                 log.getBatchId(),
                 log.getModelName(),
                 log.getSequence(),
-                log.getMachineStatus().name(),
+                applyIdleAging(log.getMachineStatus().name(), log.getTimestamp()),
                 log.getTimestamp(),
                 log.getTemperature(),
                 log.getVibrationX(),
